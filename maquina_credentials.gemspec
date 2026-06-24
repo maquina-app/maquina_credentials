@@ -8,15 +8,14 @@ Gem::Specification.new do |spec|
   spec.authors = ["Mario Alberto Chávez"]
   spec.email = ["mario.chavez@gmail.com"]
 
-  spec.summary = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description = "TODO: Write a longer description or delete this line."
+  spec.summary = "Secure command line credentials"
+  spec.description = "Secure command line credentials for encrypting and reading a shared credentials file."
   spec.homepage = "https://maquina.app"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
-  spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/maquina-app/maquina_credentials.git"
-  spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
+  spec.metadata["changelog_uri"] = "https://github.com/maquina-app/maquina_credentials/blob/main/CHANGELOG.md"
 
   spec.files = Dir.chdir(__dir__) do
     Dir[
