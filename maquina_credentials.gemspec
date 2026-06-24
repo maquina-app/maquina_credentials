@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 3.2.0"
   spec.metadata["allowed_push_host"] = "TODO: Set to your gem server 'https://example.com'"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "git@github.com:maquina-app/maquina_credentials.git"
+  spec.metadata["source_code_uri"] = "https://github.com/maquina-app/maquina_credentials.git"
   spec.metadata["changelog_uri"] = "TODO: Put your gem's CHANGELOG.md URL here."
 
   spec.files = Dir.chdir(__dir__) do
