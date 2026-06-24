@@ -246,6 +246,31 @@ class TestMaquinaCredentials < Minitest::Test
     end
   end
 
+  def test_cli_generate_prints_random_master_key
+    stdout = StringIO.new
+
+    assert_equal 0, run_cli(["generate"], stdout: stdout)
+    key = stdout.string.chomp
+    assert_match(/\A[0-9a-f]{64}\z/, key)
+  end
+
+  def test_cli_generate_produces_unique_keys
+    first = StringIO.new
+    second = StringIO.new
+
+    run_cli(["generate"], stdout: first)
+    run_cli(["generate"], stdout: second)
+
+    refute_equal first.string, second.string
+  end
+
+  def test_cli_help_mentions_generate
+    stdout = StringIO.new
+
+    assert_equal 0, run_cli(["help"], stdout: stdout)
+    assert_match(/mcr generate/, stdout.string)
+  end
+
   def test_cli_rejects_non_hash_yaml
     stderr = StringIO.new
 

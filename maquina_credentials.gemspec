@@ -5,17 +5,26 @@ require_relative "lib/maquina_credentials/version"
 Gem::Specification.new do |spec|
   spec.name = "maquina_credentials"
   spec.version = Maquina::Credentials::VERSION
-  spec.authors = ["Mario Alberto Chávez"]
+  spec.authors = ["Mario Alberto Chávez Cárdenas"]
   spec.email = ["mario.chavez@gmail.com"]
 
-  spec.summary = "Secure command line credentials"
-  spec.description = "Secure command line credentials for encrypting and reading a shared credentials file."
+  spec.summary = "Encrypted credentials for the command line"
+  spec.description = <<~DESC.tr("\n", " ").strip
+    A small, dependency-free gem that encrypts and decrypts a single
+    credentials.yml.enc file with AES-256-GCM. Ships an `mcr` command line tool
+    for reading and writing values, plus a Ruby API. Designed for container and
+    server workflows where the encrypted file travels with the image and the
+    master key is injected at runtime via MAQUINA_MASTER_KEY.
+  DESC
   spec.homepage = "https://maquina.app"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/maquina-app/maquina_credentials.git"
+  spec.metadata["source_code_uri"] = "https://github.com/maquina-app/maquina_credentials"
+  spec.metadata["documentation_uri"] = "https://github.com/maquina-app/maquina_credentials/blob/main/README.md"
   spec.metadata["changelog_uri"] = "https://github.com/maquina-app/maquina_credentials/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "https://github.com/maquina-app/maquina_credentials/issues"
+  spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(__dir__) do
     Dir[

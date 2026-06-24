@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "optparse"
+require "securerandom"
 require "yaml"
 
 module Maquina
@@ -25,6 +26,8 @@ module Maquina
         when "help", nil
           @stdout.puts parser
           0
+        when "generate"
+          generate
         when "read"
           read(@argv[1])
         when "write"
@@ -55,19 +58,22 @@ module Maquina
           options.banner = <<~TEXT.chomp
             Usage:
               mcr help
+              mcr generate
               mcr read KEY [--file PATH]
               mcr write [--file PATH] < credentials.yml
 
             Commands:
-              help   Show this help text.
-              read   Print a credential value to stdout.
-              write  Encrypt YAML from stdin and write it to the credentials file.
+              help      Show this help text.
+              generate  Print a new random master key to stdout.
+              read      Print a credential value to stdout.
+              write     Encrypt YAML from stdin and write it to the credentials file.
 
             File selection:
               Use --file PATH to read or write a specific file.
               Without --file, mcr uses credentials.yml.enc in the current directory.
 
             Examples:
+              mcr generate
               mcr read database.password
               mcr --file /tmp/credentials.yml.enc write < credentials.yml
               mcr help
@@ -82,6 +88,11 @@ module Maquina
             exit 0
           end
         end
+      end
+
+      def generate
+        @stdout.puts SecureRandom.hex(32)
+        0
       end
 
       def read(key)
