@@ -22,6 +22,9 @@ module Maquina
         command = parser.parse!(@argv).first
 
         case command
+        when "help", nil
+          @stdout.puts parser
+          0
         when "read"
           read(@argv[1])
         when "write"
@@ -49,7 +52,26 @@ module Maquina
 
       def parser
         @parser ||= OptionParser.new do |options|
-          options.banner = "Usage: maquina_credentials [options] read KEY\n       maquina_credentials [options] write < credentials.yml"
+          options.banner = <<~TEXT.chomp
+            Usage:
+              mcr help
+              mcr read KEY [--file PATH]
+              mcr write [--file PATH] < credentials.yml
+
+            Commands:
+              help   Show this help text.
+              read   Print a credential value to stdout.
+              write  Encrypt YAML from stdin and write it to the credentials file.
+
+            File selection:
+              Use --file PATH to read or write a specific file.
+              Without --file, mcr uses credentials.yml.enc in the current directory.
+
+            Examples:
+              mcr read database.password
+              mcr --file /tmp/credentials.yml.enc write < credentials.yml
+              mcr help
+          TEXT
 
           options.on("-f", "--file PATH", "Credentials file path") do |path|
             @credentials_path = path

@@ -253,6 +253,16 @@ class TestMaquinaCredentials < Minitest::Test
     assert_match(/YAML hash/, stderr.string)
   end
 
+  def test_cli_help_is_useful_and_mentions_no_env_vars
+    stdout = StringIO.new
+
+    assert_equal 0, run_cli(["help"], stdout: stdout)
+    assert_match(/mcr help/, stdout.string)
+    assert_match(/mcr read KEY/, stdout.string)
+    assert_match(/credentials\.yml\.enc in the current directory/, stdout.string)
+    refute_match(/ENV/i, stdout.string)
+  end
+
   private
 
   def credentials
