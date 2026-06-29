@@ -58,11 +58,22 @@ Read a value (dot-paths traverse nested keys):
 MAQUINA_MASTER_KEY=<key> mcr read database.password
 ```
 
-Write credentials from piped YAML:
+Write credentials from piped YAML. `write` **merges** into the existing file,
+so you can add or update keys without resending the whole document:
 
 ```sh
 MAQUINA_MASTER_KEY=<key> printf "database:\n  password: prod-secret\n" | mcr write
+MAQUINA_MASTER_KEY=<key> printf "gh_token: ghp_xxx\n" | mcr write  # database.password is kept
 ```
+
+Edit the full document interactively in `$EDITOR` (re-encrypted on save):
+
+```sh
+EDITOR=vim MAQUINA_MASTER_KEY=<key> mcr edit
+```
+
+Unlike `write`, `edit` replaces the file with exactly what you save, so deleting
+a key in the editor removes it from the file.
 
 Use a specific encrypted file:
 
@@ -99,11 +110,17 @@ credentials = Maquina::Credentials.new
 credentials.read("anthropic_key")
 credentials.read("database.password")  # dot-path traversal
 
-# Writing replaces the whole file from a full hash:
+# write replaces the whole file from a full hash:
 Maquina::Credentials.write({
   anthropic_key: "sk-ant-...",
   database: {password: "prod-secret"}
 })
+
+# merge deep-merges into whatever is already stored:
+Maquina::Credentials.merge({database: {password: "rotated"}})
+
+# read_all returns the full decrypted hash (string keys), or {} when absent:
+Maquina::Credentials.read_all
 ```
 
 - Missing credential paths return an empty string (`""`), never `nil`.

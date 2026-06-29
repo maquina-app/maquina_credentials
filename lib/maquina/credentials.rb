@@ -33,6 +33,25 @@ module Maquina
       File.delete(tmp_path) if tmp_path && File.exist?(tmp_path)
     end
 
+    def self.merge(hash, credentials_path: nil)
+      credentials_path = resolve_credentials_path(credentials_path)
+      existing = read_all(credentials_path: credentials_path)
+      write(deep_merge(existing, deep_stringify(hash)), credentials_path: credentials_path)
+    end
+
+    def self.read_all(credentials_path: nil)
+      credentials_path = resolve_credentials_path(credentials_path)
+      return {} unless File.exist?(credentials_path)
+
+      decrypted = decrypt(File.read(credentials_path), master_key)
+      loaded = YAML.safe_load(decrypted, permitted_classes: [], symbolize_names: false)
+      raise DecryptionFailed unless loaded.is_a?(Hash)
+
+      deep_stringify(loaded)
+    rescue Psych::Exception
+      raise DecryptionFailed
+    end
+
     def self.encrypt(payload, raw_key)
       cipher = OpenSSL::Cipher.new(CIPHER)
       cipher.encrypt
@@ -105,6 +124,16 @@ module Maquina
       File.join(Dir.pwd, DEFAULT_CREDENTIALS_PATH)
     end
 
+    def self.deep_merge(base, override)
+      base.merge(override) do |_key, base_value, override_value|
+        if base_value.is_a?(Hash) && override_value.is_a?(Hash)
+          deep_merge(base_value, override_value)
+        else
+          override_value
+        end
+      end
+    end
+
     def self.deep_stringify(obj)
       case obj
       when Hash
@@ -147,15 +176,7 @@ module Maquina
     end
 
     def load_credentials
-      return {} unless File.exist?(credentials_path)
-
-      decrypted = self.class.decrypt(File.read(credentials_path), self.class.master_key)
-      loaded = YAML.safe_load(decrypted, permitted_classes: [], symbolize_names: false)
-      raise DecryptionFailed unless loaded.is_a?(Hash)
-
-      self.class.deep_stringify(loaded)
-    rescue Psych::Exception
-      raise DecryptionFailed
+      self.class.read_all(credentials_path: credentials_path)
     end
   end
 end

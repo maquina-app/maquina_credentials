@@ -14,6 +14,8 @@ class TestMaquinaCredentials < Minitest::Test
   def setup
     @original_master_key = ENV["MAQUINA_MASTER_KEY"]
     @original_credentials_file = ENV["MAQUINA_CREDENTIALS_FILE"]
+    @original_editor = ENV["EDITOR"]
+    @original_visual = ENV["VISUAL"]
     @tmpdir = Dir.mktmpdir
     @credentials_path = File.join(@tmpdir, "credentials.yml.enc")
   end
@@ -21,6 +23,8 @@ class TestMaquinaCredentials < Minitest::Test
   def teardown
     ENV["MAQUINA_MASTER_KEY"] = @original_master_key
     ENV["MAQUINA_CREDENTIALS_FILE"] = @original_credentials_file
+    ENV["EDITOR"] = @original_editor
+    ENV["VISUAL"] = @original_visual
     FileUtils.remove_entry(@tmpdir) if @tmpdir && File.exist?(@tmpdir)
   end
 
@@ -264,6 +268,134 @@ class TestMaquinaCredentials < Minitest::Test
     refute_equal first.string, second.string
   end
 
+  def test_class_merge_preserves_existing_keys
+    write_credentials("api_key" => "secret")
+
+    Maquina::Credentials.merge({"gh_token" => "ghp_xxx"}, credentials_path: @credentials_path)
+
+    assert_equal "secret", credentials.read("api_key")
+    assert_equal "ghp_xxx", credentials.read("gh_token")
+  end
+
+  def test_class_merge_updates_existing_value
+    write_credentials("api_key" => "old")
+
+    Maquina::Credentials.merge({"api_key" => "new"}, credentials_path: @credentials_path)
+
+    assert_equal "new", credentials.read("api_key")
+  end
+
+  def test_class_merge_deep_merges_nested_hashes
+    write_credentials("database" => {"host" => "db.local", "password" => "old"})
+
+    Maquina::Credentials.merge({"database" => {"password" => "new"}}, credentials_path: @credentials_path)
+
+    assert_equal "db.local", credentials.read("database.host")
+    assert_equal "new", credentials.read("database.password")
+  end
+
+  def test_class_merge_into_missing_file_creates_it
+    ENV["MAQUINA_MASTER_KEY"] = MASTER_KEY
+
+    Maquina::Credentials.merge({"api_key" => "secret"}, credentials_path: @credentials_path)
+
+    assert_equal "secret", credentials.read("api_key")
+  end
+
+  def test_read_all_returns_empty_hash_for_missing_file_without_master_key
+    ENV.delete("MAQUINA_MASTER_KEY")
+
+    assert_equal({}, Maquina::Credentials.read_all(credentials_path: @credentials_path))
+  end
+
+  def test_cli_write_merges_instead_of_replacing
+    ENV["MAQUINA_MASTER_KEY"] = MASTER_KEY
+    assert_equal 0, run_cli(["--file", @credentials_path, "write"], stdin: StringIO.new("api_key: secret\n"))
+    assert_equal 0, run_cli(["--file", @credentials_path, "write"], stdin: StringIO.new("gh_token: ghp_xxx\n"))
+
+    assert_equal "secret", credentials.read("api_key")
+    assert_equal "ghp_xxx", credentials.read("gh_token")
+  end
+
+  def test_cli_edit_opens_decrypted_content_and_saves
+    write_credentials("api_key" => "secret")
+    seen = nil
+    editor = lambda do |path|
+      seen = File.read(path)
+      File.write(path, "api_key: secret\ngh_token: ghp_xxx\n")
+      true
+    end
+
+    assert_equal 0, run_cli(["--file", @credentials_path, "edit"], editor: editor)
+    assert_match(/api_key: secret/, seen)
+    assert_equal "secret", credentials.read("api_key")
+    assert_equal "ghp_xxx", credentials.read("gh_token")
+  end
+
+  def test_cli_edit_replaces_full_document_so_deletions_apply
+    write_credentials("api_key" => "secret", "gh_token" => "ghp_xxx")
+    editor = lambda do |path|
+      File.write(path, "api_key: secret\n")
+      true
+    end
+
+    assert_equal 0, run_cli(["--file", @credentials_path, "edit"], editor: editor)
+    assert_equal "secret", credentials.read("api_key")
+    assert_equal "", credentials.read("gh_token")
+  end
+
+  def test_cli_edit_starts_from_template_when_file_absent
+    ENV["MAQUINA_MASTER_KEY"] = MASTER_KEY
+    seen = nil
+    editor = lambda do |path|
+      seen = File.read(path)
+      File.write(path, "api_key: fresh\n")
+      true
+    end
+
+    assert_equal 0, run_cli(["--file", @credentials_path, "edit"], editor: editor)
+    assert_match(/Edit your credentials/, seen)
+    assert_equal "fresh", credentials.read("api_key")
+  end
+
+  def test_cli_edit_rejects_non_hash_and_leaves_file_unchanged
+    write_credentials("api_key" => "secret")
+    stderr = StringIO.new
+    editor = lambda do |path|
+      File.write(path, "- nope\n")
+      true
+    end
+
+    assert_equal 1, run_cli(["--file", @credentials_path, "edit"], editor: editor, stderr: stderr)
+    assert_match(/YAML hash/, stderr.string)
+    assert_equal "secret", credentials.read("api_key")
+  end
+
+  def test_cli_edit_aborts_when_editor_fails_and_leaves_file_unchanged
+    write_credentials("api_key" => "secret")
+    editor = ->(_path) { false }
+
+    assert_equal 1, run_cli(["--file", @credentials_path, "edit"], editor: editor)
+    assert_equal "secret", credentials.read("api_key")
+  end
+
+  def test_cli_edit_without_editor_env_reports_error
+    write_credentials("api_key" => "secret")
+    ENV.delete("EDITOR")
+    ENV.delete("VISUAL")
+    stderr = StringIO.new
+
+    assert_equal 1, run_cli(["--file", @credentials_path, "edit"], stderr: stderr)
+    assert_match(/EDITOR/, stderr.string)
+  end
+
+  def test_cli_help_mentions_edit
+    stdout = StringIO.new
+
+    assert_equal 0, run_cli(["help"], stdout: stdout)
+    assert_match(/mcr edit/, stdout.string)
+  end
+
   def test_cli_help_mentions_generate
     stdout = StringIO.new
 
@@ -324,7 +456,7 @@ class TestMaquinaCredentials < Minitest::Test
     $VERBOSE = original_verbose
   end
 
-  def run_cli(argv, stdin: StringIO.new, stdout: StringIO.new, stderr: StringIO.new)
-    Maquina::Credentials::CLI.start(argv, stdin: stdin, stdout: stdout, stderr: stderr)
+  def run_cli(argv, stdin: StringIO.new, stdout: StringIO.new, stderr: StringIO.new, editor: nil)
+    Maquina::Credentials::CLI.start(argv, stdin: stdin, stdout: stdout, stderr: stderr, editor: editor)
   end
 end
